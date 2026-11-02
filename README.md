@@ -153,6 +153,9 @@ Análise: _preencher com a discussão dos resultados, comparando o cenário espa
 - Kleinberg, Tardos. *Algorithm Design*. Capítulo sobre divisão e conquista.
 - _Adicionar material da disciplina._
 
-## Autor
+## Autores
 
-Carlos, Engenharia de Software, Universidade de Brasília (UnB).
+Carlos Henrique de Paiva Munis - 221022480
+Vinicius Araújo Oliveira - 241025425
+
+Engenharia de Software, Universidade de Brasília (UnB).
