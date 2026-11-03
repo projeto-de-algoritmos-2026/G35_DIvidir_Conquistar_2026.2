@@ -69,10 +69,12 @@ pares_em_risco(aeronaves, 5.5)  # [(0, 1, 5.0), (2, 3, 1.0)]
 ├── forca_bruta.py          # referência O(n^2)
 ├── simular.py              # gera aeronaves, move por T frames, produz log e HTML
 ├── benchmark.py            # medição de tempo contra força bruta
-├── test_par_proximo.py     # testes de correção
+├── test_par_proximo.py     # testes de correção dos algoritmos
+├── test_simular.py         # testes da simulação, log e visualização HTML/SVG
+├── test_benchmark.py       # testes do benchmark e geração do gráfico
 ├── saida/
 │   ├── log.txt             # pares em conflito por frame
-│   ├── relatorio.html      # visualização
+│   ├── relatorio.html      # visualização HTML/SVG autossuficiente
 │   └── benchmark.png       # gráfico de desempenho
 └── README.md
 ```
@@ -85,7 +87,7 @@ Requisitos: Python 3.10 ou superior. O gráfico do benchmark usa `matplotlib` e 
 pip install matplotlib pytest
 
 # 1. testes de correção
-python -m pytest test_par_proximo.py
+python -m pytest
 
 # 2. simulação, log e visualização
 python simular.py
@@ -118,25 +120,31 @@ Os testes comparam `par_mais_proximo` e `pares_em_risco` com a força bruta em m
 
 ## Resultados do benchmark
 
-Ambiente de medição: _preencher (processador, memória, versão do Python)_.
+Ambiente de medição: **12th Gen Intel Core i5-12450HX, 16 GB RAM, Windows 11 (64-bit), Python 3.14.7**.
 
 Dois cenários, ambos com `d_seguro = 5` NM:
 
-- **Esparso:** aeronaves distribuídas uniformemente em uma área grande, poucos conflitos.
-- **Denso:** o mesmo número de aeronaves concentrado em uma área pequena, muitos conflitos.
+- **Esparso:** aeronaves distribuídas uniformemente em uma área proporcional a `n` (`lado = 30 * sqrt(n)` NM), mantendo densidade constante e poucos conflitos por aeronave.
+- **Denso:** `10.000` aeronaves concentradas em uma área pequena (`50 × 50` NM), produzindo mais de 1,4 milhão de pares em conflito.
 
-| n | Cenário | Força bruta (s) | Divisão e conquista (s) | Pares em risco |
-|---|---------|-----------------|-------------------------|----------------|
-| 1.000 | esparso | _preencher_ | _preencher_ | _preencher_ |
-| 10.000 | esparso | _preencher_ | _preencher_ | _preencher_ |
-| 100.000 | esparso | _preencher_ | _preencher_ | _preencher_ |
-| 10.000 | denso | _preencher_ | _preencher_ | _preencher_ |
+| n | Cenário | Força bruta (s) | Divisão e conquista (s) | Speedup | Pares em risco |
+|---|---------|-----------------|-------------------------|---------|----------------|
+| 1.000 | esparso | 0,0350 | 0,0029 | 12,0× | 49 |
+| 2.000 | esparso | 0,1455 | 0,0064 | 22,6× | 84 |
+| 5.000 | esparso | 1,0283 | 0,0202 | 51,0× | 223 |
+| 10.000 | esparso | 4,3013 | 0,0637 | 67,5× | 464 |
+| 20.000 | esparso | 17,0994* | 0,1232 | 138,8× | 871 |
+| 50.000 | esparso | 111,9035* | 0,3467 | 322,8× | 2.186 |
+| 100.000 | esparso | 485,1191* | 0,7528 | 644,4× | 4.435 |
+| 10.000 | denso | 5,6069 | 2,0230 | 2,8× | 1.443.095 |
 
-Ponto de cruzamento observado (cenário esparso): _preencher_.
+*\*Tempos da força bruta para `n >= 20.000` medidos sobre amostra de 50 milhões de comparações reais na lista de tamanho `n` e extrapolados proporcionalmente para `n(n-1)/2` pares.*
+
+Ponto de cruzamento observado (cenário esparso): **`n ≈ 50` aeronaves** (~0,086 ms por chamada).
 
 ![Benchmark](saida/benchmark.png)
 
-Análise: _preencher com a discussão dos resultados, comparando o cenário esparso com o denso._
+Análise: No cenário **esparso**, o tempo de `pares_em_risco` acompanha a curva teórica **O(n log n)**: ao multiplicar `n` por 100 (de `1.000` para `100.000`), o tempo de divisão e conquista sobe de `0,0029 s` para `0,7528 s`, enquanto a força bruta cresce quadraticamente (**O(n²)**) para `~485 s` (um ganho de **644×** em `n = 100.000`). Para entradas muito pequenas (`n < 40`), o custo fixo de ordenação, chamadas recursivas e intercalação por `y` faz a força bruta empatar ou vencer por poucos microssegundos, com o **ponto de cruzamento ocorrendo em torno de `n ≈ 50`**. Já no cenário **denso** (`n = 10.000` em `50 × 50` NM), como uma fração expressiva das aeronaves cai simultaneamente dentro da faixa de largura `2 × d_seguro` e `k = 1.443.095` pares precisam ser inspecionados e reportados, o custo passa a ser dominado pelo termo sensível à saída **O(n log n + k)**, reduzindo a vantagem sobre a força bruta de `67,5×` para `2,8×`.
 
 ## Limitações
 
@@ -151,7 +159,6 @@ Análise: _preencher com a discussão dos resultados, comparando o cenário espa
 
 - Cormen, Leiserson, Rivest, Stein. *Introduction to Algorithms*. Capítulo sobre o problema do par de pontos mais próximos.
 - Kleinberg, Tardos. *Algorithm Design*. Capítulo sobre divisão e conquista.
-- _Adicionar material da disciplina._
 
 ## Autores
 
