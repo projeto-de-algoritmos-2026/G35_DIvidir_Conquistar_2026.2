@@ -1,9 +1,17 @@
-"""Testes da simulação e do log (M3)."""
+"""Testes da simulação, do log e da visualização HTML/SVG (M3/M4)."""
 
+import json
 import re
 
 from forca_bruta import forca_bruta
-from simular import avancar, conferem, escrever_log, executar_simulacao
+from simular import (
+    avancar,
+    conferem,
+    escrever_html,
+    escrever_log,
+    executar_simulacao,
+    gerar_html,
+)
 
 PARAMS = dict(n=60, frames=40, area=100.0, d_seguro=5.0, vel_max=3.0, semente=3)
 LINHA_CONFLITO = re.compile(r"^frame=(\d+) \| AC(\d+) - AC(\d+) \| ([\d.]+) NM$")
@@ -95,11 +103,67 @@ def test_conferem_detecta_divergencia():
     assert not conferem(base, [(0, 1, 2.0), (2, 3, 1.5)])     # distância diferente
 
 
-def test_main_gera_o_log_e_retorna_zero(tmp_path):
+def test_html_embute_json_sem_fetch_e_renderiza_svg(tmp_path):
+    """Verifica que relatorio.html embute os dados como JSON, tem eixos em NM e linhas vermelhas."""
+    frames, _ = rodar(frames=15)
+    parametros = {
+        "aeronaves": PARAMS["n"],
+        "frames": 15,
+        "area": PARAMS["area"],
+        "d_seguro": PARAMS["d_seguro"],
+        "vel_max": PARAMS["vel_max"],
+        "semente": PARAMS["semente"],
+    }
+    caminho_html = tmp_path / "relatorio.html"
+    escrever_html(str(caminho_html), frames, parametros)
+
+    conteudo = caminho_html.read_text(encoding="utf-8")
+    assert "fetch(" not in conteudo
+    assert "<svg" in conteudo
+    assert "Posição X (NM)" in conteudo
+    assert "Posição Y (NM)" in conteudo
+    assert 'class="conflito-linha"' in conteudo
+    assert 'stroke="#ef4444"' in conteudo
+
+    m = re.search(r'<script id="dados-json" type="application/json">(.*?)</script>', conteudo, re.S)
+    assert m is not None
+    dados = json.loads(m.group(1))
+    assert dados["parametros"]["aeronaves"] == PARAMS["n"]
+    assert len(dados["frames"]) == 15
+    frame_ini = dados["frame_inicial"]
+    assert len(dados["frames"][frame_ini]["conflitos"]) > 0
+
+
+def test_html_sem_conflitos_renderiza_frame_zero():
+    """Quando não há nenhum conflito, o relatório abre no frame 0 sem linhas vermelhas."""
+    frames = [
+        {"frame": 0, "posicoes": [(10.0, 10.0), (90.0, 90.0)], "conflitos": []},
+        {"frame": 1, "posicoes": [(12.0, 10.0), (88.0, 90.0)], "conflitos": []},
+    ]
+    parametros = {
+        "aeronaves": 2,
+        "frames": 2,
+        "area": 100.0,
+        "d_seguro": 5.0,
+        "vel_max": 3.0,
+        "semente": 1,
+    }
+    conteudo = gerar_html(frames, parametros)
+    svg = re.search(r"<svg.*?</svg>", conteudo, re.S).group(0)
+    assert '<circle class="aeronave segura"' in svg
+    assert '<line class="conflito-linha"' not in svg
+    assert "Nenhum conflito neste frame." in conteudo
+
+
+def test_main_gera_o_log_e_html_e_retorna_zero(tmp_path):
     from simular import main
 
-    caminho = tmp_path / "saida" / "log.txt"
-    codigo = main(["-n", "40", "-t", "20", "--semente", "5", "--saida", str(caminho)])
+    caminho_log = tmp_path / "saida" / "log.txt"
+    caminho_html = tmp_path / "saida" / "relatorio.html"
+    codigo = main(["-n", "40", "-t", "20", "--semente", "5", "--saida", str(caminho_log)])
     assert codigo == 0
-    texto = caminho.read_text(encoding="utf-8")
+    texto = caminho_log.read_text(encoding="utf-8")
     assert "todos os frames conferem" in texto
+    assert caminho_html.exists()
+    html = caminho_html.read_text(encoding="utf-8")
+    assert "<svg" in html and "const DADOS =" in html
